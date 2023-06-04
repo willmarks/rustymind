@@ -5,22 +5,25 @@ use super::layer::{apply as layer_apply, Layer};
 #[derive(Debug)]
 pub struct MLP {
     layers: Vec<Layer>,
-    pub length: usize,
+    pub params: Vec<usize>,
 }
 
 impl MLP {
-    pub fn new(nin: u32, nouts: Vec<u32>, nodes: &mut Vec<Node>) -> MLP {
+    pub fn new(n_in: u32, n_outs: Vec<u32>, nodes: &mut Vec<Node>) -> MLP {
         let mut layers = vec![];
-        layers.push(Layer::new(nin, nouts[0], nodes));
+        let mut params = vec![];
 
-        for i in 1..nouts.len() {
-            layers.push(Layer::new(nouts[i - 1], nouts[i], nodes));
+        let input_layer = Layer::new(n_in, n_outs[0], nodes);
+        params.append(&mut input_layer.parameters());
+        layers.push(input_layer);
+  
+        for i in 1..n_outs.len() {
+            let layer = Layer::new(n_outs[i - 1], n_outs[i], nodes);
+            params.append(&mut layer.parameters());
+            layers.push(layer);
         }
 
-        let mut out = MLP { layers, length: 0 };
-        out.length = out.parameters().len();
-
-        return out;
+         MLP { layers, params }
     }
 
     pub fn apply(&self, xs: &Vec<(f32, &str)>, nodes: &mut Vec<Node>) -> Vec<usize> {
@@ -37,7 +40,6 @@ impl MLP {
             }
         }
 
-        // mlp currently assumes a single output
         out.unwrap()
     }
 
@@ -82,7 +84,7 @@ impl MLP {
     }
 
     fn truncate_nodes(&self, nodes: &mut Vec<Node>) {
-        nodes.truncate(self.length)
+        nodes.truncate(self.params.len())
     }
 
     pub fn train(

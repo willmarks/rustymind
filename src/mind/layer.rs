@@ -8,11 +8,11 @@ pub struct Layer {
 }
 
 impl Layer {
-    pub fn new(nin: u32, nout: u32, values: &mut Vec<Node>) -> Layer {
+    pub fn new(n_in: u32, n_out: u32, nodes: &mut Vec<Node>) -> Layer {
         let mut neurons = vec![];
 
-        for _n in 0..nout {
-            neurons.push(Neuron::new(nin, values))
+        for _n in 0..n_out {
+            neurons.push(Neuron::new(n_in, nodes))
         }
 
         return Layer { neurons };
@@ -27,10 +27,10 @@ impl Layer {
     }
 }
 
-pub fn apply(layer: &Layer, xs: &Vec<usize>, values: &mut Vec<Node>) -> Vec<usize> {
+pub fn apply(layer: &Layer, xs: &Vec<usize>, nodes: &mut Vec<Node>) -> Vec<usize> {
     let mut outs = vec![];
     for neuron_idx in 0..layer.neurons.len() {
-        outs.push(neuron_apply(&layer.neurons[neuron_idx], xs, values));
+        outs.push(neuron_apply(&layer.neurons[neuron_idx], xs, nodes));
     }
     return outs;
 }
