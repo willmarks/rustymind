@@ -5,25 +5,25 @@ use super::layer::{apply as layer_apply, Layer};
 #[derive(Debug)]
 pub struct MLP {
     layers: Vec<Layer>,
-    pub params: Vec<usize>,
+    pub parameters: Vec<usize>,
 }
 
 impl MLP {
     pub fn new(n_in: u32, n_outs: Vec<u32>, nodes: &mut Vec<Node>) -> MLP {
         let mut layers = vec![];
-        let mut params = vec![];
+        let mut parameters = vec![];
 
         let input_layer = Layer::new(n_in, n_outs[0], nodes);
-        params.append(&mut input_layer.parameters());
+        parameters.append(&mut input_layer.parameters());
         layers.push(input_layer);
   
         for i in 1..n_outs.len() {
             let layer = Layer::new(n_outs[i - 1], n_outs[i], nodes);
-            params.append(&mut layer.parameters());
+            parameters.append(&mut layer.parameters());
             layers.push(layer);
         }
 
-         MLP { layers, params }
+         MLP { layers, parameters }
     }
 
     pub fn apply(&self, xs: &Vec<(f32, &str)>, nodes: &mut Vec<Node>) -> Vec<usize> {
@@ -44,47 +44,47 @@ impl MLP {
     }
 
     pub fn get_state(&self, nodes: &Vec<Node>) -> Vec<f32> {
-        self.parameters()
-            .into_iter()
-            .map(|n| nodes[n].data)
+        self.parameters
+            .iter()
+            .map(|n| nodes[*n].data)
             .collect()
     }
 
     pub fn set_state(&self, weights: Vec<f32>, nodes: &mut Vec<Node>) {
         if weights.len() != nodes.len() {
-            print!("Error loading state");
+            panic!("Error loading state");
         }
 
-        for (w, n) in weights.into_iter().zip(self.parameters().into_iter()) {
-            nodes[n].data = w
+        for (w, n) in weights.into_iter().zip(self.parameters.iter()) {
+            nodes[*n].data = w
         }
     }
 
-    fn parameters(&self) -> Vec<usize> {
-        let mut params = vec![];
-        for i in 0..self.layers.len() {
-            params.append(&mut self.layers[i].parameters());
-        }
-        return params;
-    }
+    // fn parameters(&self) -> Vec<usize> {
+    //     let mut params = vec![];
+    //     for i in 0..self.layers.len() {
+    //         params.append(&mut self.layers[i].parameters());
+    //     }
+    //     return params;
+    // }
 
     fn learn(&self, nodes: &mut Vec<Node>, step: f32) {
-        for param in self.parameters() {
+        for param in self.parameters.iter() {
             // let old = nodes[param].data;
             // let new = old + nodes[param].grad * -step;
             // println!("old: {}, grad: {}, new: {}", old, nodes[param].grad, new);
-            nodes[param].data += nodes[param].grad * -step
+            nodes[*param].data += nodes[*param].grad * -step
         }
     }
 
     fn zero_grad(&self, nodes: &mut Vec<Node>) {
-        for param in self.parameters() {
-            nodes[param].grad = 0.0;
+        for param in self.parameters.iter() {
+            nodes[*param].grad = 0.0;
         }
     }
 
     fn truncate_nodes(&self, nodes: &mut Vec<Node>) {
-        nodes.truncate(self.params.len())
+        nodes.truncate(self.parameters.len())
     }
 
     pub fn train(
