@@ -1,4 +1,4 @@
-use std::{fmt};
+use std::fmt;
 
 pub enum Op {
     Add,
@@ -24,7 +24,7 @@ impl Node {
             name,
             ..Default::default()
         };
-        return out.push_on(nodes)
+        return out.push_on(nodes);
     }
 
     fn push_on(mut self, nodes: &mut Vec<Node>) -> usize {
@@ -102,7 +102,7 @@ pub fn exp(idx: usize, n: f32, nodes: &mut Vec<Node>) -> usize {
     out.push_on(nodes)
 }
 
-pub fn back(idx: usize,  nodes: &mut Vec<Node>) {
+pub fn back(idx: usize, nodes: &mut Vec<Node>) {
     match nodes[idx]._op {
         Op::Add => back_add(idx, nodes),
         Op::Mul => back_mul(idx, nodes),
@@ -141,8 +141,8 @@ fn back_mul(o: usize, nodes: &mut Vec<Node>) {
 fn back_exp(o: usize, n: f32, nodes: &mut Vec<Node>) {
     // println!("back_mul");
     match nodes[o]._prev {
-        (Some(s ), None) => {
-            nodes[s].grad += n * nodes[s].data.powf(n-1.0) * nodes[o].grad;
+        (Some(s), None) => {
+            nodes[s].grad += n * nodes[s].data.powf(n - 1.0) * nodes[o].grad;
             back(s, nodes);
         }
         _ => panic!("^ attempting to back propagate incorrectly"),

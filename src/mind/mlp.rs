@@ -5,6 +5,7 @@ use super::layer::{apply as layer_apply, Layer};
 #[derive(Debug)]
 pub struct MLP {
     layers: Vec<Layer>,
+    pub length: usize,
 }
 
 impl MLP {
@@ -16,7 +17,10 @@ impl MLP {
             layers.push(Layer::new(nouts[i - 1], nouts[i], nodes));
         }
 
-        MLP { layers }
+        let mut out = MLP { layers, length: 0 };
+        out.length = out.parameters().len();
+
+        return out;
     }
 
     pub fn apply(&self, xs: &Vec<(f32, &str)>, nodes: &mut Vec<Node>) -> Vec<usize> {
@@ -35,6 +39,23 @@ impl MLP {
 
         // mlp currently assumes a single output
         out.unwrap()
+    }
+
+    pub fn get_state(&self, nodes: &Vec<Node>) -> Vec<f32> {
+        self.parameters()
+            .into_iter()
+            .map(|n| nodes[n].data)
+            .collect()
+    }
+
+    pub fn set_state(&self, weights: Vec<f32>, nodes: &mut Vec<Node>) {
+        if weights.len() != nodes.len() {
+            print!("Error loading state");
+        }
+
+        for (w, n) in weights.into_iter().zip(self.parameters().into_iter()) {
+            nodes[n].data = w
+        }
     }
 
     fn parameters(&self) -> Vec<usize> {
@@ -60,6 +81,10 @@ impl MLP {
         }
     }
 
+    fn truncate_nodes(&self, nodes: &mut Vec<Node>) {
+        nodes.truncate(self.length)
+    }
+
     pub fn train(
         &self,
         inputs: &Vec<Vec<(f32, &str)>>,
@@ -73,13 +98,14 @@ impl MLP {
             for i in 0..inputs.len() {
                 outs.push(self.apply(&inputs[i], nodes)[0]);
             }
-            
+
             let loss = loss(expected, &outs, nodes);
 
             if iteration < iterations {
                 self.zero_grad(nodes);
                 nodes[loss].grad = 1.0f32;
                 back(loss, nodes);
+                self.truncate_nodes(nodes)
             } else {
                 println!("{}: {}", iteration, nodes[loss].data);
                 let res: Vec<f32> = outs.iter().map(|o| nodes[*o].data).collect();

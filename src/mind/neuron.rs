@@ -28,7 +28,7 @@ impl Neuron {
         let mut params = self.weights.clone();
         params.push(self.bias);
         return params;
-    } 
+    }
 }
 
 pub fn apply(neuron: &Neuron, xs: &Vec<usize>, values: &mut Vec<Node>) -> usize {
