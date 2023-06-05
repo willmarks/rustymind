@@ -112,7 +112,7 @@ pub fn back(idx: usize, state: &mut State) {
             Op::Tanh => back_tanh(idx, state),
             Op::NoOp => (), //println!("NoOp"),
         }
-    }    
+    }
 }
 
 fn back_add(o: usize, state: &mut State) {
