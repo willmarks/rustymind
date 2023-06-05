@@ -1,4 +1,4 @@
-use crate::engine::value::Node;
+use crate::engine::{state::State};
 
 use super::neuron::{apply as neuron_apply, Neuron};
 
@@ -8,11 +8,11 @@ pub struct Layer {
 }
 
 impl Layer {
-    pub fn new(n_in: u32, n_out: u32, nodes: &mut Vec<Node>) -> Layer {
+    pub fn new(n_in: u32, n_out: u32, state: &mut State) -> Layer {
         let mut neurons = vec![];
 
         for _n in 0..n_out {
-            neurons.push(Neuron::new(n_in, nodes))
+            neurons.push(Neuron::new(n_in, state))
         }
 
         return Layer { neurons };
@@ -27,10 +27,10 @@ impl Layer {
     }
 }
 
-pub fn apply(layer: &Layer, xs: &Vec<usize>, nodes: &mut Vec<Node>) -> Vec<usize> {
+pub fn apply(layer: &Layer, xs: &Vec<usize>, state: &mut State) -> Vec<usize> {
     let mut outs = vec![];
     for neuron_idx in 0..layer.neurons.len() {
-        outs.push(neuron_apply(&layer.neurons[neuron_idx], xs, nodes));
+        outs.push(neuron_apply(&layer.neurons[neuron_idx], xs, state));
     }
     return outs;
 }

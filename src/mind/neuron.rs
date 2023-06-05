@@ -2,7 +2,7 @@ use std::fmt;
 
 use rand::Rng;
 
-use crate::engine::value::{add, mul, tanh, Node};
+use crate::engine::{node::{add, mul, tanh, Node}, state::State};
 
 pub struct Neuron {
     weights: Vec<usize>,
@@ -10,16 +10,16 @@ pub struct Neuron {
 }
 
 impl Neuron {
-    pub fn new(n_in: u32, nodes: &mut Vec<Node>) -> Neuron {
+    pub fn new(n_in: u32, state: &mut State) -> Neuron {
         let mut rng = rand::thread_rng();
 
         let mut weights = vec![];
         for n in 1..=n_in {
-            let w_idx = Node::new(rng.gen_range(-1.0..1.0), format!("w{}", n), nodes);
+            let w_idx = Node::new(rng.gen_range(-1.0..1.0), format!("w{}", n), true, state);
             weights.push(w_idx);
         }
 
-        let bias = Node::new(rng.gen_range(-1.0..1.0), String::from("b"), nodes);
+        let bias = Node::new(rng.gen_range(-1.0..1.0), String::from("b"), true, state);
 
         Neuron { weights, bias }
     }
@@ -31,20 +31,20 @@ impl Neuron {
     }
 }
 
-pub fn apply(neuron: &Neuron, xs: &Vec<usize>, nodes: &mut Vec<Node>) -> usize {
+pub fn apply(neuron: &Neuron, xs: &Vec<usize>, state: &mut State) -> usize {
     let mut act: Option<usize> = None;
     for i in 0..neuron.weights.len() {
         match act {
             Some(v) => {
-                act = Some(add(v, mul(neuron.weights[i], xs[i], nodes), nodes));
+                act = Some(add(v, mul(neuron.weights[i], xs[i], state), state));
             }
             None => {
-                act = Some(mul(neuron.weights[i], xs[i], nodes));
+                act = Some(mul(neuron.weights[i], xs[i], state));
             }
         }
     }
 
-    tanh(add(act.unwrap(), neuron.bias, nodes), nodes)
+    tanh(add(act.unwrap(), neuron.bias, state), state)
 }
 
 impl fmt::Debug for Neuron {
