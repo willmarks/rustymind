@@ -22,13 +22,12 @@ impl Neuron {
             let w_idx = Node::new(
                 rng.gen_range(-1.0..1.0),
                 format!("{}w{}", name, n),
-                true,
                 state,
             );
             weights.push(w_idx);
         }
 
-        let bias = Node::new(rng.gen_range(-1.0..1.0), format!("{}b", name), true, state);
+        let bias = Node::new(rng.gen_range(-1.0..1.0), format!("{}b", name), state);
 
         Neuron {
             name,

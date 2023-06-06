@@ -18,15 +18,13 @@ pub struct Node {
     pub _idx: usize,
     pub _prev: (Option<usize>, Option<usize>),
     pub _op: Op,
-    pub _parameter: bool,
 }
 
 impl Node {
-    pub fn new(data: f32, name: String, is_parameter: bool, state: &mut State) -> usize {
+    pub fn new(data: f32, name: String, state: &mut State) -> usize {
         let out = Node {
             data,
             name,
-            _parameter: is_parameter,
             ..Default::default()
         };
         return out.push_on(state);
@@ -121,7 +119,7 @@ pub fn back(node: usize, state: &mut State) {
         Op::Exp(n) => back_exp(node, n, state),
         Op::Tanh => back_tanh(node, state),
         Op::Pass => back_pass(node, state),
-        Op::End => ()
+        Op::End => (),
     }
 }
 
@@ -131,7 +129,7 @@ pub fn back(node: usize, state: &mut State) {
 fn _back(node: usize, state: &mut State) {
     match state[node]._op {
         Op::Pass => (), // println!("- Stopping: {}", state[node].name),
-        _ => back(node, state)
+        _ => back(node, state),
     }
 }
 
@@ -204,7 +202,6 @@ impl Default for Node {
             _idx: 0,
             _prev: (None, None),
             _op: Op::End,
-            _parameter: false,
         };
     }
 }

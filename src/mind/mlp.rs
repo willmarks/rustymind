@@ -36,7 +36,7 @@ impl MLP {
     pub fn apply(&mut self, xs: &Vec<(f32, &str)>, state: &mut State) -> (Vec<usize>, Vec<usize>) {
         let mut inputs = vec![];
         for (data, name) in xs {
-            inputs.push(Node::new(*data, String::from(*name), false, state));
+            inputs.push(Node::new(*data, String::from(*name), state));
         }
 
         let mut outputs: Vec<usize> = inputs;
@@ -107,17 +107,12 @@ impl MLP {
                 state[loss].grad = 1.0f32;
                 back(loss, state);
 
-
                 for i in 0..checkpoints[0].len() {
                     for apply_checks in checkpoints.iter() {
                         // println!("Applying: {}", state[apply_checks[i]].name);
                         back(apply_checks[i], state)
                     }
                 }
-
-                // for p in self.parameters.iter() {
-                //     println!("{}: {}", state[*p].name, state[*p].grad)
-                // }
 
                 self.learn(state, step);
                 self.truncate_nodes(state);
@@ -130,10 +125,11 @@ impl MLP {
     }
 }
 
+/// Calculates the loss by summing the squared the differences between actual and expected
 pub fn loss(expect: &Vec<f32>, actual: &Vec<usize>, state: &mut State) -> usize {
     let mut exs = vec![];
     for e in expect {
-        exs.push(Node::new(*e, format!("{{e:{}}}", e), false, state));
+        exs.push(Node::new(*e, format!("{{e:{}}}", e), state));
     }
 
     let mut out: Option<usize> = None;

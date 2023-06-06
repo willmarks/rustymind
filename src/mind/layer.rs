@@ -1,4 +1,4 @@
-use crate::engine::{state::State};
+use crate::engine::state::State;
 
 use super::neuron::Neuron;
 
