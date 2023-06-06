@@ -36,53 +36,12 @@ impl MLP {
         MLP { layers, parameters }
     }
 
-    pub fn apply(&mut self, xs: &Vec<(f32, &str)>, state: &mut State) -> (Vec<usize>, Vec<usize>) {
-        let mut inputs = vec![];
-        for (data, name) in xs {
-            inputs.push(Node::new(*data, String::from(*name), state));
-        }
-
-        let mut outputs: Vec<usize> = inputs;
-        let mut checkpoints: Vec<usize> = vec![];
+    pub fn eval(&mut self, xs: Vec<f32>, state: &State) -> Vec<f32> {
+        let mut outs = xs;
         for layer in self.layers.iter() {
-            outputs = layer.apply(&outputs, state);
-            checkpoints.append(&mut outputs.to_vec());
+            outs = layer.eval(&outs, state);
         }
-
-        (outputs, checkpoints.into_iter().rev().collect())
-    }
-
-    pub fn get_state(&self, state: &State) -> Vec<f32> {
-        self.parameters.iter().map(|n| state[*n].data).collect()
-    }
-
-    pub fn set_state(&self, weights: Vec<f32>, state: &mut State) {
-        if weights.len() != state.nodes.len() {
-            panic!("Error loading state");
-        }
-
-        for (w, n) in weights.into_iter().zip(self.parameters.iter()) {
-            state[*n].data = w
-        }
-    }
-
-    fn learn(&self, state: &mut State, step: f32) {
-        for param in self.parameters.iter() {
-            // let old = nodes[param].data;
-            // let new = old + nodes[param].grad * -step;
-            // println!("old: {}, grad: {}, new: {}", old, nodes[param].grad, new);
-            state[*param].data += state[*param].grad * -step;
-        }
-    }
-
-    fn zero_grad(&mut self, state: &mut State) {
-        for param in self.parameters.iter() {
-            state[*param].grad = 0.0;
-        }
-    }
-
-    fn truncate_nodes(&self, state: &mut State) {
-        state.nodes.truncate(self.parameters.len())
+        return outs;
     }
 
     pub fn train(
@@ -126,10 +85,59 @@ impl MLP {
             }
         }
     }
+
+    pub fn get_state(&self, state: &State) -> Vec<f32> {
+        self.parameters.iter().map(|n| state[*n].data).collect()
+    }
+
+    pub fn set_state(&self, weights: Vec<f32>, state: &mut State) {
+        if weights.len() != state.nodes.len() {
+            panic!("Error loading state");
+        }
+
+        for (w, n) in weights.into_iter().zip(self.parameters.iter()) {
+            state[*n].data = w
+        }
+    }
+
+    fn apply(&mut self, xs: &Vec<(f32, &str)>, state: &mut State) -> (Vec<usize>, Vec<usize>) {
+        let mut inputs = vec![];
+        for (data, name) in xs {
+            inputs.push(Node::new(*data, String::from(*name), state));
+        }
+
+        let mut outputs: Vec<usize> = inputs;
+        let mut checkpoints: Vec<usize> = vec![];
+        for layer in self.layers.iter() {
+            outputs = layer.apply(&outputs, state);
+            checkpoints.append(&mut outputs.to_vec());
+        }
+
+        (outputs, checkpoints.into_iter().rev().collect())
+    }
+
+    fn learn(&self, state: &mut State, step: f32) {
+        for param in self.parameters.iter() {
+            // let old = nodes[param].data;
+            // let new = old + nodes[param].grad * -step;
+            // println!("old: {}, grad: {}, new: {}", old, nodes[param].grad, new);
+            state[*param].data += state[*param].grad * -step;
+        }
+    }
+
+    fn zero_grad(&mut self, state: &mut State) {
+        for param in self.parameters.iter() {
+            state[*param].grad = 0.0;
+        }
+    }
+
+    fn truncate_nodes(&self, state: &mut State) {
+        state.nodes.truncate(self.parameters.len())
+    }
 }
 
 /// Calculates the loss by summing the squared the differences between actual and expected
-pub fn loss(expect: &Vec<f32>, actual: &Vec<usize>, state: &mut State) -> usize {
+fn loss(expect: &Vec<f32>, actual: &Vec<usize>, state: &mut State) -> usize {
     let mut exs = vec![];
     for e in expect {
         exs.push(Node::new(*e, format!("{{e:{}}}", e), state));

@@ -19,11 +19,7 @@ impl Neuron {
 
         let mut weights = vec![];
         for n in 1..=n_in {
-            let w_idx = Node::new(
-                rng.gen_range(-1.0..1.0),
-                format!("{}w{}", name, n),
-                state,
-            );
+            let w_idx = Node::new(rng.gen_range(-1.0..1.0), format!("{}w{}", name, n), state);
             weights.push(w_idx);
         }
 
@@ -36,6 +32,9 @@ impl Neuron {
         }
     }
 
+    /// Takes inputs and constructs the node equivalent of the eval fn to allow for back propagation.
+    /// Wraps all of its nodes in a checkpoint to prevent back propagation before upstream nodes
+    /// have been back propagated.
     pub fn apply(&self, xs: &Vec<usize>, state: &mut State) -> usize {
         let mut act: Option<usize> = None;
         for (i, w) in self.weights.iter().enumerate() {
@@ -55,6 +54,16 @@ impl Neuron {
             &self.name,
             state,
         )
+    }
+
+    /// Evaluates the inputs with the weights stored in the state.
+    pub fn eval(&self, xs: &Vec<f32>, state: &State) -> f32 {
+        let mut act: f32 = 0.0;
+        for (i, w) in self.weights.iter().enumerate() {
+            act += state[*w].data * xs[i];
+        }
+        let x = act + state[self.bias].data;
+        return ((2.0 * x).exp() - 1.0) / ((2.0 * x).exp() + 1.0);
     }
 }
 

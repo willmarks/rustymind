@@ -18,6 +18,7 @@ impl Layer {
         return Layer { neurons };
     }
 
+    /// Applies the inputs to each neuron and returns the vec of their output nodes.
     pub fn apply(&self, xs: &Vec<usize>, state: &mut State) -> Vec<usize> {
         let mut outs = vec![];
         for neuron in self.neurons.iter() {
@@ -25,4 +26,13 @@ impl Layer {
         }
         return outs;
     }
+
+    /// Evaluates the inputs for each neuron and returns their results.
+    pub fn eval(&self, xs: &Vec<f32>, state: &State) -> Vec<f32> {
+        let mut outs = vec![];
+        for neuron in self.neurons.iter() {
+            outs.push(neuron.eval(xs, state));
+        }
+        return outs;
+    } 
 }
