@@ -7,7 +7,8 @@ pub enum Op {
     Mul,
     Tanh,
     Exp(f32),
-    NoOp,
+    Pass,
+    End,
 }
 
 pub struct Node {
@@ -39,35 +40,44 @@ impl Node {
     }
 }
 
-pub fn tanh(idx: usize, state: &mut State) -> usize {
-    let x = state[idx].data;
+pub fn checkpoint(node: usize, name: &str, state: &mut State) -> usize {
+    let out = Node {
+        data: state[node].data,
+        name: format!("Checkpoint({})", name),
+        _prev: (Some(node), None),
+        _op: Op::Pass,
+        ..Default::default()
+    };
+    out.push_on(state)
+}
+
+pub fn tanh(node: usize, state: &mut State) -> usize {
+    let x = state[node].data;
     let t = ((2.0 * x).exp() - 1.0) / ((2.0 * x).exp() + 1.0);
     let out = Node {
         data: t,
-        name: format!("tanh({})", state[idx].name),
-        grad: state[idx].grad,
-        _idx: 0,
-        _prev: (Some(idx), None),
+        name: format!("tanh({})", state[node].name),
+        _prev: (Some(node), None),
         _op: Op::Tanh,
         ..Default::default()
     };
     out.push_on(state)
 }
 
-pub fn add(idx: usize, other: usize, state: &mut State) -> usize {
-    let s = &state[idx];
+pub fn add(node: usize, other: usize, state: &mut State) -> usize {
+    let s = &state[node];
     let other = &state[other];
     let out = Node {
         data: s.data + other.data,
         name: format!("({}+{})", s.name, other.name),
-        _prev: (Some(idx), Some(other._idx)),
+        _prev: (Some(node), Some(other._idx)),
         _op: Op::Add,
         ..Default::default()
     };
     out.push_on(state)
 }
 
-pub fn sub(idx: usize, other: usize, state: &mut State) -> usize {
+pub fn sub(node: usize, other: usize, state: &mut State) -> usize {
     let neg = Node {
         data: -1.0,
         name: String::from("neg"),
@@ -75,43 +85,63 @@ pub fn sub(idx: usize, other: usize, state: &mut State) -> usize {
     };
     let neg_idx = neg.push_on(state);
 
-    add(idx, mul(other, neg_idx, state), state)
+    add(node, mul(other, neg_idx, state), state)
 }
 
-pub fn mul(idx: usize, other: usize, state: &mut State) -> usize {
-    let s = &state[idx];
+pub fn mul(node: usize, other: usize, state: &mut State) -> usize {
+    let s = &state[node];
     let other = &state[other];
     let out = Node {
         data: s.data * other.data,
         name: format!("({}*{})", s.name, other.name),
-        _prev: (Some(idx), Some(other._idx)),
+        _prev: (Some(node), Some(other._idx)),
         _op: Op::Mul,
         ..Default::default()
     };
     out.push_on(state)
 }
 
-pub fn exp(idx: usize, n: f32, state: &mut State) -> usize {
-    let s = &state[idx];
+pub fn exp(node: usize, n: f32, state: &mut State) -> usize {
+    let s = &state[node];
     let out = Node {
         data: s.data.powf(n),
         name: format!("({}^{})", s.name, n),
-        _prev: (Some(idx), None),
+        _prev: (Some(node), None),
         _op: Op::Exp(n),
         ..Default::default()
     };
     out.push_on(state)
 }
 
-pub fn back(idx: usize, state: &mut State) {
-    if !state[idx]._parameter {
-        match state[idx]._op {
-            Op::Add => back_add(idx, state),
-            Op::Mul => back_mul(idx, state),
-            Op::Exp(n) => back_exp(idx, n, state),
-            Op::Tanh => back_tanh(idx, state),
-            Op::NoOp => (), //println!("NoOp"),
+pub fn back(node: usize, state: &mut State) {
+    // println!("back: {}", state[node].name);
+    match state[node]._op {
+        Op::Add => back_add(node, state),
+        Op::Mul => back_mul(node, state),
+        Op::Exp(n) => back_exp(node, n, state),
+        Op::Tanh => back_tanh(node, state),
+        Op::Pass => back_pass(node, state),
+        Op::End => ()
+    }
+}
+
+/**
+ * Computes the backward pass until it reaches a checkpoint
+ */
+fn _back(node: usize, state: &mut State) {
+    match state[node]._op {
+        Op::Pass => (), // println!("- Stopping: {}", state[node].name),
+        _ => back(node, state)
+    }
+}
+
+fn back_pass(o: usize, state: &mut State) {
+    match state[o]._prev {
+        (Some(a), None) => {
+            state[a].grad += state[o].grad;
+            _back(a, state);
         }
+        _ => panic!("-> attempting to back propagate incorrectly"),
     }
 }
 
@@ -121,8 +151,8 @@ fn back_add(o: usize, state: &mut State) {
         (Some(a), Some(b)) => {
             state[a].grad += 1.0 * state[o].grad;
             state[b].grad += 1.0 * state[o].grad;
-            back(b, state);
-            back(a, state);
+            _back(b, state);
+            _back(a, state);
         }
         _ => panic!("+ attempting to back propagate incorrectly"),
     }
@@ -134,8 +164,8 @@ fn back_mul(o: usize, state: &mut State) {
         (Some(a), Some(b)) => {
             state[a].grad += state[b].data * state[o].grad;
             state[b].grad += state[a].data * state[o].grad;
-            back(b, state);
-            back(a, state);
+            _back(b, state);
+            _back(a, state);
         }
         _ => panic!("* attempting to back propagate incorrectly"),
     }
@@ -146,7 +176,7 @@ fn back_exp(o: usize, n: f32, state: &mut State) {
     match state[o]._prev {
         (Some(s), None) => {
             state[s].grad += n * state[s].data.powf(n - 1.0) * state[o].grad;
-            back(s, state);
+            _back(s, state);
         }
         _ => panic!("^ attempting to back propagate incorrectly"),
     }
@@ -159,7 +189,7 @@ fn back_tanh(o: usize, state: &mut State) {
             let x = state[s].data;
             let t = ((2.0 * x).exp() - 1.0) / ((2.0 * x).exp() + 1.0);
             state[s].grad += (1.0 - t.powf(2.0)) * state[o].grad;
-            back(s, state);
+            _back(s, state);
         }
         _ => panic!("tanh attempting to back propagate incorrectly"),
     }
@@ -173,7 +203,7 @@ impl Default for Node {
             name: String::new(),
             _idx: 0,
             _prev: (None, None),
-            _op: Op::NoOp,
+            _op: Op::End,
             _parameter: false,
         };
     }
