@@ -1,36 +1,38 @@
-use crate::engine::value::Node;
+use crate::engine::state::State;
 
-use super::neuron::{apply as neuron_apply, Neuron};
+use super::neuron::Neuron;
 
 #[derive(Debug)]
 pub struct Layer {
-    neurons: Vec<Neuron>,
+    pub neurons: Vec<Neuron>,
 }
 
 impl Layer {
-    pub fn new(n_in: u32, n_out: u32, nodes: &mut Vec<Node>) -> Layer {
+    pub fn new(n_in: u32, n_out: u32, name: String, state: &mut State) -> Layer {
         let mut neurons = vec![];
 
-        for _n in 0..n_out {
-            neurons.push(Neuron::new(n_in, nodes))
+        for n in 0..n_out {
+            neurons.push(Neuron::new(n_in, format!("l{}n{}", name, n), state))
         }
 
         return Layer { neurons };
     }
 
-    pub fn parameters(&self) -> Vec<usize> {
-        let mut params = vec![];
-        for i in 0..self.neurons.len() {
-            params.append(&mut self.neurons[i].parameters());
+    /// Applies the inputs to each neuron and returns the vec of their output nodes.
+    pub fn apply(&self, xs: &Vec<usize>, state: &mut State) -> Vec<usize> {
+        let mut outs = vec![];
+        for neuron in self.neurons.iter() {
+            outs.push(neuron.apply(xs, state));
         }
-        return params;
+        return outs;
     }
-}
 
-pub fn apply(layer: &Layer, xs: &Vec<usize>, nodes: &mut Vec<Node>) -> Vec<usize> {
-    let mut outs = vec![];
-    for neuron_idx in 0..layer.neurons.len() {
-        outs.push(neuron_apply(&layer.neurons[neuron_idx], xs, nodes));
-    }
-    return outs;
+    /// Evaluates the inputs for each neuron and returns their results.
+    pub fn eval(&self, xs: &Vec<f32>, state: &State) -> Vec<f32> {
+        let mut outs = vec![];
+        for neuron in self.neurons.iter() {
+            outs.push(neuron.eval(xs, state));
+        }
+        return outs;
+    } 
 }

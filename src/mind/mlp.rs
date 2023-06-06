@@ -1,139 +1,154 @@
-use crate::engine::value::{add, back, exp, sub, Node};
+use crate::engine::{
+    node::{add, back, exp, sub, Node},
+    state::State,
+};
 
-use super::layer::{apply as layer_apply, Layer};
+use super::layer::Layer;
 
 #[derive(Debug)]
 pub struct MLP {
     layers: Vec<Layer>,
-    pub parameters: Vec<usize>,
+    parameters: Vec<usize>,
 }
 
 impl MLP {
-    pub fn new(n_in: u32, n_outs: Vec<u32>, nodes: &mut Vec<Node>) -> MLP {
+    pub fn new(n_in: u32, layer_sizes: Vec<u32>, state: &mut State) -> MLP {
         let mut layers = vec![];
-        let mut parameters = vec![];
 
-        let input_layer = Layer::new(n_in, n_outs[0], nodes);
-        parameters.append(&mut input_layer.parameters());
-        layers.push(input_layer);
-  
-        for i in 1..n_outs.len() {
-            let layer = Layer::new(n_outs[i - 1], n_outs[i], nodes);
-            parameters.append(&mut layer.parameters());
+        let layer = Layer::new(n_in, layer_sizes[0], format!("ins"), state);
+            layers.push(layer);
+
+        for i in 0..layer_sizes.len() - 1 {
+            let layer = Layer::new(layer_sizes[i], layer_sizes[i + 1], format!("{}", i), state);
             layers.push(layer);
         }
 
-         MLP { layers, parameters }
-    }
-
-    pub fn apply(&self, xs: &Vec<(f32, &str)>, nodes: &mut Vec<Node>) -> Vec<usize> {
-        let mut xsi = vec![];
-        for (data, name) in xs {
-            xsi.push(Node::new(*data, String::from(*name), nodes));
-        }
-
-        let mut out: Option<Vec<usize>> = None;
-        for layer_idx in 0..self.layers.len() {
-            out = match out {
-                Some(v) => Some(layer_apply(&self.layers[layer_idx], &v, nodes)),
-                None => Some(layer_apply(&self.layers[layer_idx], &xsi, nodes)),
+        let mut parameters = vec![];
+        for layer in layers.iter().rev() {
+            for neuron in layer.neurons.iter() {
+                parameters.push(neuron.bias);
+                for weight in neuron.weights.iter() {
+                    parameters.push(*weight);
+                }
             }
         }
 
-        out.unwrap()
+        MLP { layers, parameters }
     }
 
-    pub fn get_state(&self, nodes: &Vec<Node>) -> Vec<f32> {
-        self.parameters
-            .iter()
-            .map(|n| nodes[*n].data)
-            .collect()
-    }
-
-    pub fn set_state(&self, weights: Vec<f32>, nodes: &mut Vec<Node>) {
-        if weights.len() != nodes.len() {
-            panic!("Error loading state");
+    pub fn eval(&mut self, xs: Vec<f32>, state: &State) -> Vec<f32> {
+        let mut outs = xs;
+        for layer in self.layers.iter() {
+            outs = layer.eval(&outs, state);
         }
-
-        for (w, n) in weights.into_iter().zip(self.parameters.iter()) {
-            nodes[*n].data = w
-        }
-    }
-
-    // fn parameters(&self) -> Vec<usize> {
-    //     let mut params = vec![];
-    //     for i in 0..self.layers.len() {
-    //         params.append(&mut self.layers[i].parameters());
-    //     }
-    //     return params;
-    // }
-
-    fn learn(&self, nodes: &mut Vec<Node>, step: f32) {
-        for param in self.parameters.iter() {
-            // let old = nodes[param].data;
-            // let new = old + nodes[param].grad * -step;
-            // println!("old: {}, grad: {}, new: {}", old, nodes[param].grad, new);
-            nodes[*param].data += nodes[*param].grad * -step
-        }
-    }
-
-    fn zero_grad(&self, nodes: &mut Vec<Node>) {
-        for param in self.parameters.iter() {
-            nodes[*param].grad = 0.0;
-        }
-    }
-
-    fn truncate_nodes(&self, nodes: &mut Vec<Node>) {
-        nodes.truncate(self.parameters.len())
+        return outs;
     }
 
     pub fn train(
-        &self,
+        &mut self,
         inputs: &Vec<Vec<(f32, &str)>>,
         expected: &Vec<f32>,
         iterations: i32,
         step: f32,
-        nodes: &mut Vec<Node>,
+        state: &mut State,
     ) {
         for iteration in 1..=iterations {
             let mut outs: Vec<usize> = vec![];
+            let mut checkpoints: Vec<Vec<usize>> = vec![];
+
             for i in 0..inputs.len() {
-                outs.push(self.apply(&inputs[i], nodes)[0]);
+                let (output, checks) = self.apply(&inputs[i], state);
+                outs.push(output[0]);
+                checkpoints.push(checks);
             }
 
-            let loss = loss(expected, &outs, nodes);
+            let loss = loss(expected, &outs, state);
 
             if iteration < iterations {
-                self.zero_grad(nodes);
-                nodes[loss].grad = 1.0f32;
-                back(loss, nodes);
-                self.truncate_nodes(nodes)
+                self.zero_grad(state);
+                state[loss].grad = 1.0f32;
+                back(loss, state);
+
+                for i in 0..checkpoints[0].len() {
+                    for apply_checks in checkpoints.iter() {
+                        // println!("Applying: {}", state[apply_checks[i]].name);
+                        back(apply_checks[i], state)
+                    }
+                }
+
+                self.learn(state, step);
+                self.truncate_nodes(state);
             } else {
-                println!("{}: {}", iteration, nodes[loss].data);
-                let res: Vec<f32> = outs.iter().map(|o| nodes[*o].data).collect();
+                println!("{}: {}", iteration, state[loss].data);
+                let res: Vec<f32> = outs.iter().map(|o| state[*o].data).collect();
                 println!("outs: {:?}", res);
             }
-
-            self.learn(nodes, step);
         }
+    }
+
+    pub fn get_state(&self, state: &State) -> Vec<f32> {
+        self.parameters.iter().map(|n| state[*n].data).collect()
+    }
+
+    pub fn set_state(&self, weights: Vec<f32>, state: &mut State) {
+        if weights.len() != state.nodes.len() {
+            panic!("Error loading state");
+        }
+
+        for (w, n) in weights.into_iter().zip(self.parameters.iter()) {
+            state[*n].data = w
+        }
+    }
+
+    fn apply(&mut self, xs: &Vec<(f32, &str)>, state: &mut State) -> (Vec<usize>, Vec<usize>) {
+        let mut inputs = vec![];
+        for (data, name) in xs {
+            inputs.push(Node::new(*data, String::from(*name), state));
+        }
+
+        let mut outputs: Vec<usize> = inputs;
+        let mut checkpoints: Vec<usize> = vec![];
+        for layer in self.layers.iter() {
+            outputs = layer.apply(&outputs, state);
+            checkpoints.append(&mut outputs.to_vec());
+        }
+
+        (outputs, checkpoints.into_iter().rev().collect())
+    }
+
+    fn learn(&self, state: &mut State, step: f32) {
+        for param in self.parameters.iter() {
+            // let old = nodes[param].data;
+            // let new = old + nodes[param].grad * -step;
+            // println!("old: {}, grad: {}, new: {}", old, nodes[param].grad, new);
+            state[*param].data += state[*param].grad * -step;
+        }
+    }
+
+    fn zero_grad(&mut self, state: &mut State) {
+        for param in self.parameters.iter() {
+            state[*param].grad = 0.0;
+        }
+    }
+
+    fn truncate_nodes(&self, state: &mut State) {
+        state.nodes.truncate(self.parameters.len())
     }
 }
 
-pub fn loss(expect: &Vec<f32>, actual: &Vec<usize>, nodes: &mut Vec<Node>) -> usize {
+/// Calculates the loss by summing the squared the differences between actual and expected
+fn loss(expect: &Vec<f32>, actual: &Vec<usize>, state: &mut State) -> usize {
     let mut exs = vec![];
     for e in expect {
-        exs.push(Node::new(*e, String::from("e"), nodes));
+        exs.push(Node::new(*e, format!("{{e:{}}}", e), state));
     }
 
     let mut out: Option<usize> = None;
     for (e_val, a_val) in exs.into_iter().zip(actual.into_iter()) {
-        let sub_res = sub(*a_val, e_val, nodes);
-        let exp_res = exp(sub_res, 2.0f32, nodes);
+        let sub_res = sub(*a_val, e_val, state);
+        let exp_res = exp(sub_res, 2.0f32, state);
         out = match out {
-            Some(v) => {
-                let add_res = add(v, exp_res, nodes);
-                Some(add_res)
-            }
+            Some(v) => Some(add(v, exp_res, state)),
             None => Some(exp_res),
         }
     }
