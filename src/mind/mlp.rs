@@ -12,10 +12,13 @@ pub struct MLP {
 }
 
 impl MLP {
-    pub fn new(layer_sizes: Vec<u32>, state: &mut State) -> MLP {
+    pub fn new(n_in: u32, layer_sizes: Vec<u32>, state: &mut State) -> MLP {
         let mut layers = vec![];
 
-        for i in 0..layer_sizes.len() - 1 {
+        let layer = Layer::new(n_in, layer_sizes[0], format!("ins"), state);
+            layers.push(layer);
+
+        for i in 1..layer_sizes.len() - 1 {
             let layer = Layer::new(layer_sizes[i], layer_sizes[i + 1], format!("{}", i), state);
             layers.push(layer);
         }
