@@ -15,9 +15,9 @@ pub struct Node {
     pub data: f32,
     pub name: String,
     pub grad: f32,
-    pub _idx: usize,
-    pub _prev: (Option<usize>, Option<usize>),
-    pub _op: Op,
+    _idx: usize,
+    _prev: (Option<usize>, Option<usize>),
+    _op: Op,
 }
 
 impl Node {
