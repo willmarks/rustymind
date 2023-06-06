@@ -18,7 +18,7 @@ impl MLP {
         let layer = Layer::new(n_in, layer_sizes[0], format!("ins"), state);
             layers.push(layer);
 
-        for i in 1..layer_sizes.len() - 1 {
+        for i in 0..layer_sizes.len() - 1 {
             let layer = Layer::new(layer_sizes[i], layer_sizes[i + 1], format!("{}", i), state);
             layers.push(layer);
         }
